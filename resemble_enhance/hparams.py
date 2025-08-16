@@ -54,7 +54,7 @@ class HParams:
     # Training
     nj: int = 64
     training_seconds: float = 1.0
-    batch_size_per_gpu: int = 16
+    batch_size_per_gpu: int = 1
     min_lr: float = 1e-5
     max_lr: float = 1e-4
     warmup_steps: int = 1000
@@ -77,9 +77,31 @@ class HParams:
                     "warmup_num_steps": self.warmup_steps,
                     "total_num_steps": self.max_steps,
                     "warmup_type": "linear",
-                },
+            },
             },
             "gradient_clipping": self.gradient_clipping,
+            "gradient_accumulation_steps": 8,  # Accumulate gradients over 8 steps
+            # Add ZeRO Stage 3 optimization for maximum memory efficiency with CPU offloading
+            "zero_optimization": {
+                "stage": 3,  # Stage 3 for maximum memory efficiency
+                "offload_optimizer": {
+                    "device": "cpu",
+                    "pin_memory": True
+                },
+                "offload_param": {
+                    "device": "cpu",
+                    "pin_memory": True
+                },
+                "overlap_comm": True,
+                "contiguous_gradients": True,
+                # "sub_group_size": 1e9,
+                "reduce_bucket_size": "auto",
+                "stage3_prefetch_bucket_size": "auto",
+                "stage3_param_persistence_threshold": "auto",
+                # "stage3_max_live_parameters": 1e9,
+                # "stage3_max_reuse_distance": 1e9,
+                # "stage3_gather_16bit_weights_on_model_save": True
+            }
         }
 
     @property
