@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import wandb
 from dataclasses import KW_ONLY, dataclass
 from pathlib import Path
 from typing import Protocol
@@ -48,10 +49,14 @@ class TrainLoop:
     update_every: int = 5_000
     eval_every: int = 5_000
     backup_steps: tuple[int, ...] = (5_000, 100_000, 500_000)
+    checkpoint_every_steps: int = 5_000
+    save_top_n: int | None = None
 
     device: str = "cuda"
     eval_fn: EvalFn | None = None
     gan_training_start_step: int | None = None
+    wandb_project: str = "resemble-enhance"
+    wandb_name: str | None = None
 
     @property
     def global_step(self):
@@ -76,6 +81,11 @@ class TrainLoop:
         return path
 
     def __post_init__(self):
+        wandb.init(project=self.wandb_project, name=self.wandb_name, config={
+            "update_every": self.update_every,
+            "eval_every": self.eval_every,
+             "device": self.device,
+        })
         engine_G = self.load_G(self.run_dir)
         if self.load_D is None:
             engine_D = None
@@ -100,6 +110,31 @@ class TrainLoop:
         engine_G.save_checkpoint(tag=tag)
         if engine_D is not None:
             engine_D.save_checkpoint(tag=tag)
+
+    def _cleanup_old_checkpoints(self, current_step: int):
+        """Remove old checkpoints to keep only the latest save_top_n checkpoints."""
+        if self.save_top_n is None:
+            return
+            
+        import glob
+        import os
+        from pathlib import Path
+        
+        # Find all backup checkpoint directories
+        checkpoint_pattern = str(self.run_dir / "backup_*")
+        backup_dirs = glob.glob(checkpoint_pattern)
+        
+        if len(backup_dirs) <= self.save_top_n:
+            return
+            
+        # Sort by modification time (newest first)
+        backup_dirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        
+        # Remove oldest checkpoints beyond save_top_n
+        for old_dir in backup_dirs[self.save_top_n:]:
+            logger.info(f"Removing old checkpoint: {old_dir}")
+            import shutil
+            shutil.rmtree(old_dir)
 
     def run(self, max_steps: int = -1):
         self.set_running_loop_(self)
@@ -204,9 +239,12 @@ class TrainLoop:
 
                 torch.cuda.synchronize()
                 stats["elapsed_time"] = time.time() - start_time
-                stats = tree_map(lambda x: float(f"{x:.4g}") if isinstance(x, float) else x, stats)
+                # Convert all tensor values to float for JSON serialization
+                stats = tree_map(lambda x: float(f"{x:.4g}") if isinstance(x, (float, Tensor)) else x, stats)
                 logger.info(json.dumps(stats, indent=0))
 
+                wandb.log(stats)
+                
                 command = non_blocking_input()
 
                 evaling = step % eval_every == 0 or step in warmup_steps or command.strip() == "eval"
@@ -220,9 +258,10 @@ class TrainLoop:
                     self.save_checkpoint("default")
                     return
 
-                if command.strip() == "backup" or step in self.backup_steps:
+                if command.strip() == "backup" or step in self.backup_steps or (step % self.checkpoint_every_steps == 0 and step > 0):
                     logger.info("Backing up")
                     self.save_checkpoint(tag=f"backup_{step:07d}")
+                    self._cleanup_old_checkpoints(step)
 
                 if step % update_every == 0 or command.strip() == "save":
                     self.save_checkpoint(tag="default")
