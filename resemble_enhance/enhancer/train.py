@@ -50,6 +50,8 @@ def main():
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--yaml", type=Path, default=None)
     parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--wandb-project", type=str, default="resemble-enhance", help="WandB project name")
+    parser.add_argument("--wandb-name", type=str, default=None, help="WandB run name")
     args = parser.parse_args()
 
     setup_logging(args.run_dir)
@@ -82,6 +84,10 @@ def main():
 
     @torch.no_grad()
     def eval_fn(engine: Engine, eval_dir, n_saved=10):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Running validation")
+        
         assert isinstance(hp, HParams)
 
         model = engine.module
@@ -97,7 +103,8 @@ def main():
             if hp.lcfm_training_mode == "ae":
                 in_dwavs = fg_wavs
             elif hp.lcfm_training_mode == "cfm":
-                in_dwavs = mix_fg_bg(fg_wavs, batch["bg_dwavs"])
+                alpha_fn = lambda: random.uniform(*hp.mix_alpha_range)
+                in_dwavs = mix_fg_bg(batch["fg_dwavs"], batch["bg_dwavs"], alpha=alpha_fn)
             else:
                 raise ValueError(f"Unknown training mode: {hp.lcfm_training_mode}")
 
@@ -108,7 +115,10 @@ def main():
             pred_fg_mels = model.to_mel(pred_fg_wavs)  # 1 c t
 
             rate = model.hp.wav_rate
-            get_path = lambda suffix: eval_dir / f"step_{step:08}_{i:03}{suffix}"
+            
+            # Extract original filename without extension
+            original_name = batch["fg_paths"][0].stem
+            get_path = lambda suffix: eval_dir / f"step_{step:08}_{i:03}_{original_name}{suffix}"
 
             save_wav(get_path("_input.wav"), in_dwavs[0], rate=rate)
             save_wav(get_path("_predict.wav"), pred_fg_wavs[0], rate=rate)
@@ -120,6 +130,9 @@ def main():
                 pred_mel=pred_fg_mels[0].cpu().numpy(),
                 targ_mel=fg_mels[0].cpu().numpy(),
             )
+
+            # Clear intermediate tensors
+            del pred_fg_wavs, in_mels, fg_mels, pred_fg_mels, in_dwavs
 
             if i >= n_saved:
                 break
@@ -134,6 +147,10 @@ def main():
         feed_D=feed_D,
         eval_fn=eval_fn,
         gan_training_start_step=hp.gan_training_start_step,
+        checkpoint_every_steps=hp.checkpoint_every_steps,
+        save_top_n=hp.save_top_n,
+        wandb_project=args.wandb_project,
+        wandb_name=args.wandb_name,
     )
 
     train_loop.run(max_steps=hp.max_steps)

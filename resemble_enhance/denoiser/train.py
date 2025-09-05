@@ -39,6 +39,8 @@ def main():
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--yaml", type=Path, default=None)
     parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--wandb-project", type=str, default="resemble-enhance", help="WandB project name")
+    parser.add_argument("--wandb-name", type=str, default=None, help="WandB run name")
     args = parser.parse_args()
 
     setup_logging(args.run_dir)
@@ -80,7 +82,10 @@ def main():
             pred_fg_mels = model.to_mel(pred_fg_dwavs)  # 1 c t
 
             rate = model.hp.wav_rate
-            get_path = lambda suffix: eval_dir / f"step_{step:08}_{i:03}{suffix}"
+            
+            # Extract original filename without extension
+            original_name = batch["fg_paths"][0].stem
+            get_path = lambda suffix: eval_dir / f"step_{step:08}_{i:03}_{original_name}{suffix}"
 
             save_wav(get_path("_input.wav"), mx_dwavs[0], rate=rate)
             save_wav(get_path("_predict.wav"), pred_fg_dwavs[0], rate=rate)
@@ -103,6 +108,10 @@ def main():
         device=args.device,
         feed_G=feed_G,
         eval_fn=eval_fn,
+        checkpoint_every_steps=hp.checkpoint_every_steps,
+        save_top_n=hp.save_top_n,
+        wandb_project=args.wandb_project,
+        wandb_name=args.wandb_name,
     )
 
     train_loop.run(max_steps=hp.max_steps)
