@@ -52,7 +52,7 @@ class HParams:
     mix_alpha_range: tuple[float, float] = (0.2, 0.8)
 
     # Training
-    nj: int = 64
+    nj: int = 14
     training_seconds: float = 1.0
     batch_size_per_gpu: int = 1
     min_lr: float = 1e-5
@@ -60,13 +60,17 @@ class HParams:
     warmup_steps: int = 1000
     max_steps: int = 1_000_000
     gradient_clipping: float = 1.0
+    
+    # Checkpointing
+    checkpoint_every_steps: int = 5000
+    save_top_n: int | None = None
 
     @property
     def deepspeed_config(self):
         return {
             "train_micro_batch_size_per_gpu": self.batch_size_per_gpu,
             "optimizer": {
-                "type": "Adam",
+                "type": "AdamW",  # Use AdamW instead of Adam to avoid FusedAdam
                 "params": {"lr": float(self.min_lr)},
             },
             "scheduler": {
@@ -80,28 +84,28 @@ class HParams:
             },
             },
             "gradient_clipping": self.gradient_clipping,
-            "gradient_accumulation_steps": 8,  # Accumulate gradients over 8 steps
+            "gradient_accumulation_steps": 4,
             # Add ZeRO Stage 3 optimization for maximum memory efficiency with CPU offloading
-            "zero_optimization": {
-                "stage": 3,  # Stage 3 for maximum memory efficiency
-                "offload_optimizer": {
-                    "device": "cpu",
-                    "pin_memory": True
-                },
-                "offload_param": {
-                    "device": "cpu",
-                    "pin_memory": True
-                },
-                "overlap_comm": True,
-                "contiguous_gradients": True,
-                # "sub_group_size": 1e9,
-                "reduce_bucket_size": "auto",
-                "stage3_prefetch_bucket_size": "auto",
-                "stage3_param_persistence_threshold": "auto",
-                # "stage3_max_live_parameters": 1e9,
-                # "stage3_max_reuse_distance": 1e9,
-                # "stage3_gather_16bit_weights_on_model_save": True
-            }
+            # "zero_optimization": {
+            #     "stage": 3,  # Stage 3 for maximum memory efficiency
+            #     "offload_optimizer": {
+            #         "device": "cpu",
+            #         "pin_memory": True
+            #     },
+            #     "offload_param": {
+            #         "device": "cpu",
+            #         "pin_memory": True
+            #     },
+            #     "overlap_comm": True,
+            #     "contiguous_gradients": True,
+            #     # "sub_group_size": 1e9,
+            #     "reduce_bucket_size": "auto",
+            #     "stage3_prefetch_bucket_size": "auto",
+            #     "stage3_param_persistence_threshold": "auto",
+            #     # "stage3_max_live_parameters": 1e9,
+            #     # "stage3_max_reuse_distance": 1e9,
+            #     # "stage3_gather_16bit_weights_on_model_save": True
+            # }
         }
 
     @property
