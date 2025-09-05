@@ -8,7 +8,8 @@ def walk_paths(root, suffix):
     for path in Path(root).iterdir():
         if path.is_dir():
             yield from walk_paths(path, suffix)
-        elif path.suffix == suffix:
+        elif path.suffix == suffix and not path.name.startswith('.'):
+            # Filter out hidden files (starting with '.') which are often corrupted metadata files
             yield path
 
 
