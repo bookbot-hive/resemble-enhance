@@ -84,7 +84,7 @@ def main():
             rate = model.hp.wav_rate
             
             # Extract original filename without extension
-            original_name = batch["fg_paths"][0].stem
+            original_name = batch["fg_paths"][0][0].stem
             get_path = lambda suffix: eval_dir / f"step_{step:08}_{i:03}_{original_name}{suffix}"
 
             save_wav(get_path("_input.wav"), mx_dwavs[0], rate=rate)

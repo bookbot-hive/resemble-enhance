@@ -1,0 +1,1 @@
+python apply_rir.py data/fg/clean/eleven-bookbot-books/en-AU-DeanNeural/en-AU-DeanNeural-0.opus data/rir/0001_1_raw_rirs.npy convolved.opus

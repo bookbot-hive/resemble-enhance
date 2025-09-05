@@ -1,0 +1,18 @@
+# Configuration for generating training examples
+fg_dir: data/fg
+bg_dir: data/bg
+rir_dir: data/rir
+
+# Audio settings
+wav_rate: 44100
+training_seconds: 3.0
+mix_alpha_range: [0.1, 0.9]
+praat_augment_prob: 0.0  # Disable for examples
+
+# Other required fields
+load_fg_only: false
+batch_size_per_gpu: 8
+
+# Checkpointing (not used for examples but required)
+checkpoint_every_steps: 5000
+save_top_n: 5

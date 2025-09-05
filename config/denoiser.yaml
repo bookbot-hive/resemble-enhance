@@ -1,2 +1,7 @@
-batch_size_per_gpu: 32
+batch_size_per_gpu: 8
 training_seconds: 3.0
+
+# Checkpointing
+checkpoint_every_steps: 5000
+save_top_n: 5
+nj: 14

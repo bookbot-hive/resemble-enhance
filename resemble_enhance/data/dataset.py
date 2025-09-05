@@ -83,12 +83,7 @@ class Dataset(DatasetBase):
         self.distorter = Distorter(hp, training=training, mode=mode)
 
     def _load_wav(self, path, length=None, random_crop=True):
-        wav, sr = torchaudio.load(str(path), backend="soundfile")
-        # try:
-        #     wav, sr = torchaudio.load(str(path))
-        # except RuntimeError:
-        #     # Try with soundfile backend if SOX fails
-        #     wav, sr = torchaudio.load(str(path), backend="soundfile")
+        wav, sr = torchaudio.load(path)
 
         wav = AF.resample(
             waveform=wav,
@@ -151,6 +146,7 @@ class Dataset(DatasetBase):
             bg_wav=bg_wav,
             fg_dwav=fg_dwav,
             bg_dwav=bg_dwav,
+            fg_paths=[self.fg_paths[index]],  # Include path for evaluation filename extraction
         )
 
     def __getitem__(self, index: int):
@@ -173,4 +169,5 @@ class Dataset(DatasetBase):
             bg_wavs=_collate(batch, "bg_wav"),
             fg_dwavs=_collate(batch, "fg_dwav"),
             bg_dwavs=_collate(batch, "bg_dwav"),
+            fg_paths=[item["fg_paths"] for item in batch],  # Handle fg_paths as list of lists
         )

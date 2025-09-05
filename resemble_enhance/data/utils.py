@@ -8,13 +8,12 @@ def walk_paths(root, suffix):
     for path in Path(root).iterdir():
         if path.is_dir():
             yield from walk_paths(path, suffix)
-        elif path.suffix == suffix and not path.name.startswith('.'):
-            # Filter out hidden files (starting with '.') which are often corrupted metadata files
+        elif path.suffix == suffix:
             yield path
 
 
 def rglob_audio_files(path: Path):
-    return list(walk_paths(path, ".wav")) + list(walk_paths(path, ".flac")) + list(walk_paths(path, ".opus"))
+    return list(walk_paths(path, ".wav")) + list(walk_paths(path, ".flac"))
 
 
 def mix_fg_bg(fg: Tensor, bg: Tensor, alpha: float | Callable[..., float] = 0.5, eps=1e-7):

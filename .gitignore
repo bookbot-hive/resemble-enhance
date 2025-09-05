@@ -8,3 +8,6 @@
 version.py
 __pycache__
 model_repo
+wandb
+.vscode.
+corrupted_audio
