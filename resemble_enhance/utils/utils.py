@@ -7,7 +7,8 @@ import numpy as np
 def save_mels(path, *, targ_mel, pred_mel, cond_mel):
     n = 3 if cond_mel is None else 4
 
-    plt.figure(figsize=(10, n * 4))
+    plt.close('all')  # Close any existing figures
+    fig = plt.figure(figsize=(10, n * 4))
 
     i = 1
 
@@ -35,7 +36,8 @@ def save_mels(path, *, targ_mel, pred_mel, cond_mel):
         i += 1
 
     plt.savefig(path, dpi=480)
-    plt.close()
+    plt.close(fig)
+    plt.close('all')
 
 
 T = TypeVar("T")
